@@ -1,0 +1,85 @@
+plugins {
+    id 'scala'
+    id 'maven-publish'
+    id 'idea'
+    id 'org.hidetake.ssh' version '2.5.1'
+}
+version=0.0
+
+/**
+ * Dependency configuration
+ */
+repositories {
+    jcenter()
+}
+
+dependencies {
+    // normalize scala and spark versions across jars
+    def scala_version='2.10'
+    def spark_version='1.4.+'
+    // scala
+    compile "org.scala-lang:scala-library:${scala_version}.+"
+    testCompile "org.scalatest:scalatest_${scala_version}:+"
+    testRuntime "org.scala-lang.modules:scala-xml_${scala_version}:+"
+    testCompile "junit:junit:+"
+    // spark
+    compile "org.apache.spark:spark-core_${scala_version}:${spark_version}"
+    compile "org.apache.spark:spark-sql_${scala_version}:${spark_version}"
+    //compile "org.apache.spark:spark-hive_${scala_version}:${spark_version}"
+    //compile "com.databricks:spark-csv_${scala_version}:${spark_version}"
+}
+
+/**
+ * spark-submit scripts
+ */
+def mainClass = hasProperty('sparkMain') ? project.sparkMain : "none"
+task runLocal(type:Exec, dependsOn: jar) {
+    println jar.archivePath
+    commandLine 'spark-submit',
+            '--class', mainClass,
+            jar.archivePath
+}
+
+def runScript= """
+    #!/bin/sh
+    spark-submit \\
+        --class ${mainClass} \\
+        --master yarn-client \\
+        ${jar.archiveName}
+    """
+
+/**
+ * SSH config
+ */
+def sshUser = hasProperty('sshUser') ? project.sshUser : "$System.env.USER"
+def sshIdentity = file("$System.env.HOME/.ssh/id_rsa")
+ssh.settings {
+    // used to test ssh tasks without connection
+    dryRun = project.hasProperty('dryRun')
+}
+remotes {
+    edl {
+        role 'analytics'
+        host = 'edl'
+        user = sshUser
+        identity = sshIdentity
+    }
+}
+
+// ssh example - deploy and run on edge node
+task deployOnEdgeNode(dependsOn: jar) << {
+    ssh.run {
+        session(remotes.role('analytics')){
+            execute "mkdir -p ${project.name}"
+            put text: runScript, into: "${project.name}/run.sh"
+            put from: jar.archivePath, into: "${project.name}/"
+        }
+    }
+}
+task runOnEdgeNode(dependsOn: deployOnEdgeNode) << {
+    ssh.run {
+        session(remotes.role('analytics')){
+            execute "cd ${project.name} && bash run.sh"
+        }
+    }
+}

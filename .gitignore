@@ -1,0 +1,14 @@
+
+# gradle
+.gradle/
+build/
+
+# spark
+log
+
+#idea
+.idea/
+*.iml
+*.ipr
+*.iws
+
