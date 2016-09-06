@@ -20,7 +20,7 @@ dependencies {
     // scala
     compile "org.scala-lang:scala-library:${scala_version}.+"
     testCompile "org.scalatest:scalatest_${scala_version}:+"
-    testRuntime "org.scala-lang.modules:scala-xml_${scala_version}:+"
+    //testRuntime "org.scala-lang.modules:scala-xml_${scala_version}:+"
     testCompile "junit:junit:+"
     // spark
     compile "org.apache.spark:spark-core_${scala_version}:${spark_version}"
@@ -34,7 +34,6 @@ dependencies {
  */
 def mainClass = hasProperty('sparkMain') ? project.sparkMain : "none"
 task runLocal(type:Exec, dependsOn: jar) {
-    println jar.archivePath
     commandLine 'spark-submit',
             '--class', mainClass,
             jar.archivePath
